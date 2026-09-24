@@ -306,12 +306,38 @@
               });
         }
 
-        // Показывает interstitial; промис резолвится после закрытия рекламы или при ошибке
+        // Кулдаун между показами interstitial; время хранится в localStorage, т.к. страница перезагружается
+        const INTERSTITIAL_COOLDOWN_MS = 30 * 1000;
+        const INTERSTITIAL_LAST_SHOWN_KEY = 'interstitialLastShown';
+
+        function getInterstitialLastShown() {
+          try {
+            return parseInt(localStorage.getItem(INTERSTITIAL_LAST_SHOWN_KEY)) || 0;
+          } catch (e) {
+            return 0;
+          }
+        }
+
+        function setInterstitialLastShown(time) {
+          try {
+            localStorage.setItem(INTERSTITIAL_LAST_SHOWN_KEY, String(time));
+          } catch (e) {}
+        }
+
+        // Показывает interstitial; промис резолвится после закрытия рекламы, при ошибке или если кулдаун не прошёл
         function showInterstitial() {
           if (!vkAvailable || (vkBridge.isEmbedded && !vkBridge.isEmbedded())) {
             return Promise.resolve();
           }
+          if (Date.now() - getInterstitialLastShown() < INTERSTITIAL_COOLDOWN_MS) {
+            return Promise.resolve();
+          }
           return vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
+              .then((data) => {
+                if (data && data.result) {
+                  setInterstitialLastShown(Date.now());
+                }
+              })
               .catch((error) => {
                 console.log(error);
               });
