@@ -247,13 +247,18 @@
     setTimeout(game.start, 400);
   })
 
+  let reloading = false
   $('.js-reload').on('click', function () {
+      if (reloading) return
+      reloading = true
       document.getElementById('over-zero').style.display = 'none';
       document.getElementById('score').innerText = 'Перезагрузка...';
 
-      setTimeout(() => {
-         window.location.reload();
-      }, 200)
+      showInterstitial().then(() => {
+         setTimeout(() => {
+            window.location.reload();
+         }, 200)
+      })
 
   })
 
@@ -281,21 +286,36 @@
 
 			<!-- vk bridge -->
       <script>
-        vkBridge.send("VKWebAppInit", {});
-      </script>
-      <script>
-        vkBridge.send('VKWebAppShowBannerAd', {
-          banner_location: 'bottom'
-        })
-            .then((data) => {
-              if (data.result) {
-                // Баннерная реклама отобразилась
-              }
-            })
-            .catch((error) => {
-              // Ошибка
-              console.log(error);
-            });
+        const vkAvailable = typeof vkBridge !== 'undefined';
+
+        if (vkAvailable) {
+          vkBridge.send('VKWebAppInit', {});
+
+          // Баннер снизу
+          vkBridge.send('VKWebAppShowBannerAd', {
+            banner_location: 'bottom'
+          })
+              .catch((error) => {
+                console.log(error);
+              });
+
+          // Предзагрузка межстраничной рекламы
+          vkBridge.send('VKWebAppCheckNativeAds', { ad_format: 'interstitial' })
+              .catch((error) => {
+                console.log(error);
+              });
+        }
+
+        // Показывает interstitial; промис резолвится после закрытия рекламы или при ошибке
+        function showInterstitial() {
+          if (!vkAvailable || (vkBridge.isEmbedded && !vkBridge.isEmbedded())) {
+            return Promise.resolve();
+          }
+          return vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
+              .catch((error) => {
+                console.log(error);
+              });
+        }
       </script>
 
       <!-- Скрипт для спрайта -->
